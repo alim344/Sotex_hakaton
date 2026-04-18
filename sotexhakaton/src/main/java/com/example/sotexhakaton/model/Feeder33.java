@@ -1,11 +1,10 @@
 package com.example.sotexhakaton.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Entity
 @Table(name = "Feeders33")
@@ -24,6 +23,14 @@ public class Feeder33 {
     private int MeterId;
     private int NameplateRating;
 
+
+    @ManyToMany
+    @JoinTable(
+            name = "Feeder33Substation",
+            joinColumns = @JoinColumn(name = "Feeders33Id"),
+            inverseJoinColumns = @JoinColumn(name = "SubstationsId")
+    )
+    private List<Substations> substations;
 
 
 }
