@@ -16,7 +16,7 @@ public class MeterReadTfes {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long Id;
 
     @Column(name = "Mid", nullable = false)
     private Integer mid;

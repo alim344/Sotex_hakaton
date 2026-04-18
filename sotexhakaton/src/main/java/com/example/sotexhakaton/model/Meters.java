@@ -16,7 +16,7 @@ public class Meters {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer Id;
 
     @Column(name = "MSN", length = 40)
     private String msn;
@@ -24,8 +24,8 @@ public class Meters {
     @Column(name = "MultiplierFactor", nullable = false)
     private Double multiplierFactor;
 
-    @OneToMany(mappedBy = "meter")
-    private List<MeterReadTfes> meterReadTfes;
+//    @OneToMany(mappedBy = "Meters")
+//    private List<MeterReadTfes> meterReadTfes;
 
 //    @OneToMany(mappedBy = "meter")
 //    private List<MeterReads> meterReads;

@@ -17,7 +17,7 @@ public class DistributionSubstation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "Id")
-    private Integer id;
+    private Integer Id;
 
     @Column(name = "Name", length = 100)
     private String name;
