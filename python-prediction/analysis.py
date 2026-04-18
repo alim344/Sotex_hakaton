@@ -1,29 +1,29 @@
 import pandas as pd
 import numpy as np
 
-def clean_and_augment_data(df_readings, df_feeders):
+# def clean_and_augment_data(df_readings, df_feeders):
 
-    df_feeders['NameplateRating'] = df_feeders['NameplateRating'].replace(0, np.nan)
+#     df_feeders['NameplateRating'] = df_feeders['NameplateRating'].replace(0, np.nan)
 
-    df_feeders['NameplateRating'] = pd.to_numeric(df_feeders['NameplateRating'], errors='coerce')
-    df_feeders['SsId'] = pd.to_numeric(df_feeders['SsId'], errors='coerce')
-    df_feeders['TsId'] = pd.to_numeric(df_feeders['TsId'], errors='coerce')
+#     df_feeders['NameplateRating'] = pd.to_numeric(df_feeders['NameplateRating'], errors='coerce')
+#     df_feeders['SsId'] = pd.to_numeric(df_feeders['SsId'], errors='coerce')
+#     df_feeders['TsId'] = pd.to_numeric(df_feeders['TsId'], errors='coerce')
 
-    df_feeders['NameplateRating'] = df_feeders['NameplateRating'].replace(0, np.nan)
+#     df_feeders['NameplateRating'] = df_feeders['NameplateRating'].replace(0, np.nan)
 
-    df_feeders['TemporaryKey'] = df_feeders.apply(make_key, axis=1)
+#     df_feeders['TemporaryKey'] = df_feeders.apply(make_key, axis=1)
 
-    df_feeders['NameplateRating'] = df_feeders['NameplateRating'].fillna(
-        df_feeders.groupby('TemporaryKey')['NameplateRating'].transform('mean')
-    )
+#     df_feeders['NameplateRating'] = df_feeders['NameplateRating'].fillna(
+#         df_feeders.groupby('TemporaryKey')['NameplateRating'].transform('mean')
+#     )
 
-    preostalo_nan = df_feeders['NameplateRating'].isnull().sum()
-    if preostalo_nan > 0:
-        df_feeders['NameplateRating'] = df_feeders['NameplateRating'].fillna(df_feeders['NameplateRating'].mean())
+#     preostalo_nan = df_feeders['NameplateRating'].isnull().sum()
+#     if preostalo_nan > 0:
+#         df_feeders['NameplateRating'] = df_feeders['NameplateRating'].fillna(df_feeders['NameplateRating'].mean())
 
-    df_readings['timestamp'] = pd.to_datetime(df_readings['timestamp'])
+#     df_readings['timestamp'] = pd.to_datetime(df_readings['timestamp'])
 
-    return df_readings, df_feeders
+#     return df_readings, df_feeders
 
 
 def analyze_data(df: pd.DataFrame) -> dict:
