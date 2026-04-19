@@ -43,4 +43,15 @@ public class Feeder11Controller {
 
         return ResponseEntity.ok(result);
     }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<Feeder11SimpleDTO>> getAllFeeders() {
+        List<Feeder11> feeders = feeder11Service.findAll();
+
+        List<Feeder11SimpleDTO> result = feeders.stream()
+                .map(f -> new Feeder11SimpleDTO(f.getId(), f.getName()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
+    }
 }

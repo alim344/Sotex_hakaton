@@ -4,7 +4,7 @@
     
     <div v-if="loading" class="loading-overlay">
       <div class="spinner"></div>
-      <p>Učitavam stanice...</p>
+      <p>Loading...</p>
     </div>
     
     <div class="search-container">
@@ -12,7 +12,7 @@
         type="text"
         v-model="searchQuery"
         @input="searchStation"
-        placeholder="🔍 Pretraži stanicu (npr. B5, G22, R2)..."
+        placeholder="🔍 Find stations (e.g., B5, G22, R2)..."
         class="search-input"
       />
       <button v-if="searchQuery" @click="clearSearch" class="clear-btn">✖</button>
@@ -27,16 +27,15 @@
           <span class="result-id">{{ result.f11Count || 0 }} F11</span>
         </div>
         <div v-if="searchResults.length === 0 && searchQuery" class="no-results">
-          Nema rezultata za "{{ searchQuery }}"
+          No results for "{{ searchQuery }}"
         </div>
       </div>
     </div>
     
-    <!-- Stats panel sa filter legendom -->
     <div class="stats-panel">
       <h3>⚡ Sotex Solutions</h3>
       <div class="stat">
-        <span>📍 Ukupno stanica:</span>
+        <span>📍 Total Stations:</span>
         <strong>{{ totalCount }}</strong>
       </div>
       <div class="legend">
@@ -46,7 +45,7 @@
           @click="setFilter('all')"
         >
           <span class="dot all"></span>
-          <span>Sve stanice</span>
+          <span>All Stations</span>
         </div>
         <div 
           class="legend-item" 
@@ -54,7 +53,7 @@
           @click="setFilter('substation')"
         >
           <span class="dot red"></span>
-          <span>Srednjenaponske ({{ substationCount }})</span>
+          <span>Substations ({{ substationCount }})</span>
         </div>
         <div 
           class="legend-item" 
@@ -62,7 +61,7 @@
           @click="setFilter('transmission')"
         >
           <span class="dot blue"></span>
-          <span>Visokonaponske ({{ transmissionCount }})</span>
+          <span>Transmission Stations ({{ transmissionCount }})</span>
         </div>
       </div>
     </div>
@@ -107,13 +106,13 @@ let allMarkers = []
 
 function formatFeederList(feeders) {
   if (!feeders || feeders.length === 0) {
-    return '<i>Nema F11 izvoda</i>'
+    return '<i>No Feeders11</i>'
   }
   
   let html = '<ul style="margin: 8px 0 0 18px; font-size: 11px; max-height: 150px; overflow-y: auto;">'
   feeders.forEach(f => {
     const feederId = f.id || f.Id || '?'
-    const feederName = f.name || f.Name || f.feederName || 'Nepoznato'
+    const feederName = f.name || f.Name || f.feederName || 'Undefined'
     html += `<li style="margin: 3px 0;"><strong>🔌 ${feederName}</strong> (ID: ${feederId})</li>`
   })
   html += '</ul>'
@@ -126,7 +125,7 @@ async function loadFeedersForStation(stationId) {
     const response = await axios.get(`http://localhost:8080/feeders/by-substation/${stationId}`)
     return response.data
   } catch (error) {
-    console.warn(`Ne mogu da učitam F11 za stanicu ${stationId}`)
+    console.warn(`No feeders found for station ${stationId}`)
     return []
   }
 }
@@ -143,12 +142,12 @@ async function createPopupContent(station) {
         <strong>🔑 ID:</strong> ${station.id}
       </div>
         <div style="font-size: 12px; margin: 5px 0;">
-              <strong>⚡ Tip:</strong> Srednjenaponska
+              <strong>⚡ Type:</strong> Substations
             </div>
       <div style="font-size: 12px; margin: 5px 0;">
-        <strong>🔌 F11 izvoda:</strong> ${feeders.length}
+        <strong>🔌 Feeders11:</strong> ${feeders.length}
       </div>
-      ${feeders.length > 0 ? `<hr style="margin: 8px 0;"><div style="font-size: 12px;"><strong>📋 Lista F11 izvoda:</strong>${feederListHtml}</div>` : ''}
+      ${feeders.length > 0 ? `<hr style="margin: 8px 0;"><div style="font-size: 12px;"><strong>📋 Feeders11 list:</strong>${feederListHtml}</div>` : ''}
     </div>
   `
 }
@@ -190,10 +189,10 @@ async function loadSubstations() {
       allMarkers.push({ marker, station, type: 'substation' })
     }
     
-    console.log(`✅ Učitano ${allSubstations.length} srednjenaponskih stanica`)
+    console.log(`✅ Loaded ${allSubstations.length} srednjenaponskih stanica`)
     
   } catch (error) {
-    console.error('❌ Greška pri učitavanju substations:', error)
+    console.error('❌ Error:', error)
   }
 }
 
@@ -215,7 +214,7 @@ async function loadTransmissionStations() {
               <strong>🔑 ID:</strong> ${station.id}
             </div>
             <div style="font-size: 12px; margin: 5px 0;">
-              <strong>⚡ Tip:</strong> Visokonaponska (TS)
+              <strong>⚡ Type:</strong> Transmission Stations
             </div>
           </div>
         `)
@@ -223,10 +222,10 @@ async function loadTransmissionStations() {
       allMarkers.push({ marker, station, type: 'transmission' })
     })
     
-    console.log(`✅ Učitano ${allTransmissions.length} visokonaponskih stanica`)
+    console.log(`✅ Loaded ${allTransmissions.length} visokonaponskih stanica`)
     
   } catch (error) {
-    console.error('❌ Greška pri učitavanju transmission stations:', error)
+    console.error('❌ Error:', error)
   }
 }
 
@@ -271,7 +270,7 @@ function clearSearch() {
 }
 
 onMounted(async () => {
-  leafletMap = L.map('map').setView([9.08, 7.49], 11)
+  leafletMap = L.map('map').setView([9.08, 7.49], 12)
   
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',

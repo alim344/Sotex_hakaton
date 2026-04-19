@@ -11,11 +11,12 @@
             <span class="nav-icon">🗺️</span>
             Substations Map
           </router-link>
+          <router-link to="/monitor" class="nav-link" active-class="active">
+           <span class="nav-icon">📊</span>
+                Feeders
+            </router-link>
         </div>
-        <div class="nav-status">
-          <span class="status-dot"></span>
-          <span class="status-text">Live Data</span>
-        </div>
+
       </div>
     </nav>
 
