@@ -33,7 +33,6 @@
     </div>
     
     <div class="stats-panel">
-      <h3>⚡ Sotex Solutions</h3>
       <div class="stat">
         <span>📍 Total Stations:</span>
         <strong>{{ totalCount }}</strong>
@@ -113,7 +112,7 @@ function formatFeederList(feeders) {
   feeders.forEach(f => {
     const feederId = f.id || f.Id || '?'
     const feederName = f.name || f.Name || f.feederName || 'Undefined'
-    html += `<li style="margin: 3px 0;"><strong>🔌 ${feederName}</strong> (ID: ${feederId})</li>`
+    html += `<li style="margin: 3px 0;"><strong>${feederName}</strong> (ID: ${feederId})</li>`
   })
   html += '</ul>'
   
@@ -136,18 +135,18 @@ async function createPopupContent(station) {
   
   return `
     <div style="min-width: 260px; max-width: 320px; padding: 5px;">
-      <b style="color: #e94560; font-size: 14px;">🏭 ${station.name}</b>
+      <b style="color: #e94560; font-size: 14px;">${station.name}</b>
       <hr style="margin: 8px 0;">
       <div style="font-size: 12px; margin: 5px 0;">
-        <strong>🔑 ID:</strong> ${station.id}
+        <strong>ID:</strong> ${station.id}
       </div>
         <div style="font-size: 12px; margin: 5px 0;">
-              <strong>⚡ Type:</strong> Substations
+              <strong>Type:</strong> Substations
             </div>
       <div style="font-size: 12px; margin: 5px 0;">
-        <strong>🔌 Feeders11:</strong> ${feeders.length}
+        <strong>Feeders11:</strong> ${feeders.length}
       </div>
-      ${feeders.length > 0 ? `<hr style="margin: 8px 0;"><div style="font-size: 12px;"><strong>📋 Feeders11 list:</strong>${feederListHtml}</div>` : ''}
+      ${feeders.length > 0 ? `<hr style="margin: 8px 0;"><div style="font-size: 12px;"><strong>Feeders11 list:</strong>${feederListHtml}</div>` : ''}
     </div>
   `
 }
@@ -208,13 +207,13 @@ async function loadTransmissionStations() {
         .bindTooltip(station.name, { sticky: true, direction: 'top', offset: [0, -15] })
         .bindPopup(`
           <div style="min-width: 200px; padding: 5px;">
-            <b style="color: #3b82f6; font-size: 14px;">🏭 ${station.name}</b>
+            <b style="color: #3b82f6; font-size: 14px;">${station.name}</b>
             <hr style="margin: 8px 0;">
             <div style="font-size: 12px; margin: 5px 0;">
-              <strong>🔑 ID:</strong> ${station.id}
+              <strong>ID:</strong> ${station.id}
             </div>
             <div style="font-size: 12px; margin: 5px 0;">
-              <strong>⚡ Type:</strong> Transmission Stations
+              <strong>Type:</strong> Transmission Stations
             </div>
           </div>
         `)

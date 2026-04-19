@@ -8,7 +8,6 @@
     <div class="selector-section">
       <div class="selector-card">
         <div class="selector-header">
-          <span class="selector-icon">🔌</span>
           <label>Select F11 feeder</label>
         </div>
         <div class="selector-wrapper">
@@ -43,7 +42,6 @@
           
           <div class="day-stats">
             <div class="day-stat">
-              <div class="stat-icon">📈</div>
               <div class="stat-info">
                 <span class="stat-label">Max</span>
                 <span class="stat-value" :class="getLoadClass(day.maxLoad)">
@@ -53,14 +51,12 @@
             </div>
 
             <div class="day-stat">
-              <div class="stat-icon">⚠️</div>
               <div class="stat-info">
                 <span class="stat-label">Missing</span>
                 <span class="stat-value">{{ day.missingCount }}</span>
               </div>
             </div>
             <div class="day-stat">
-              <div class="stat-icon">🏷️</div>
               <div class="stat-info">
                 <span class="stat-label">Status</span>
                 <span class="status-badge" :class="getStatusClass(day.status)">
@@ -102,13 +98,10 @@
       <!-- Summary statistics -->
       <div class="summary-card">
         <div class="summary-header">
-          <h3>📊 Summary Statistics (3 days)</h3>
+          <h3> Summary Statistics (3 days)</h3>
         </div>
         <div class="summary-stats">
           <div class="summary-stat">
-            <div class="stat-circle">
-              <span class="stat-emoji">📈</span>
-            </div>
             <div class="stat-content">
               <span class="summary-label">Peak load</span>
               <span class="summary-value" :class="getLoadClass(overallStats.absoluteMax)">
@@ -117,36 +110,24 @@
             </div>
           </div>
           <div class="summary-stat">
-            <div class="stat-circle">
-              <span class="stat-emoji">⚠️</span>
-            </div>
             <div class="stat-content">
               <span class="summary-label">Overloads</span>
               <span class="summary-value">{{ overallStats.totalOverloads }}</span>
             </div>
           </div>
           <div class="summary-stat">
-            <div class="stat-circle">
-              <span class="stat-emoji">🟠</span>
-            </div>
             <div class="stat-content">
               <span class="summary-label">Stressed periods</span>
               <span class="summary-value">{{ overallStats.totalStressed }}</span>
             </div>
           </div>
           <div class="summary-stat">
-            <div class="stat-circle">
-              <span class="stat-emoji">📭</span>
-            </div>
             <div class="stat-content">
               <span class="summary-label">Missing readings</span>
               <span class="summary-value">{{ overallStats.totalMissing }}</span>
             </div>
           </div>
           <div class="summary-stat">
-            <div class="stat-circle">
-              <span class="stat-emoji">🟢</span>
-            </div>
             <div class="stat-content">
               <span class="summary-label">Average load</span>
               <span class="summary-value">{{ overallStats.avgOverall }}%</span>
