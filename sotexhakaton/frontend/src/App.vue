@@ -23,6 +23,9 @@
      
               Risk Analysis
             </router-link>
+            <router-link to="/forecast" class="nav-link" active-class="active">
+            Forecast
+          </router-link>
         </div>
 
       </div>

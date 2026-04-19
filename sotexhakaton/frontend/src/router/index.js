@@ -4,6 +4,7 @@ import AnalysisPage from '../views/AnalysisPage.vue'
 import SubstationMap from '../components/SubstationMap.vue'
 import FeederMonitor from '../components/FeederMonitor.vue'
 import FeedersAnalysis from '../components/FeedersAnalysis.vue'
+import ForecastPage from '../components/ForecastPage.vue'
 
 const routes = [
   {
@@ -20,6 +21,11 @@ const routes = [
   path: '/feeders',
   name: 'Feeders',
   component: FeedersAnalysis
+},
+{
+  path: '/forecast',
+  name: 'Forecast',
+  component: ForecastPage
 }
 ]
 

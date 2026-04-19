@@ -123,14 +123,6 @@ def network_scan(req: NetworkScanRequest):
 
 @app.post("/forecast", response_model=ForecastResponse)
 def forecast(req: ForecastRequest):
-    """
-    Predikcija potrošnje za Feeder11.
- 
-    - Koristi SARIMA(1,1,1)(1,0,1)[48] ako ima dovoljno podataka
-    - Fallback na naive (prosek istog sata/dana u nedelji)
-    - Predviđa consumption_per_hour (kWh/h) — bez normalizacije na NameplateRating
-    - Prag za 'visoku potrošnju' = 90. percentil istorijskih vrednosti
-    """
     key = (req.feeder11_id, req.hours, req.horizon_hours)
     if key in _forecast_cache:
         cached = _forecast_cache[key]
