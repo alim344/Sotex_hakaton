@@ -143,7 +143,7 @@ def get_feeder_history(feeder_id: int):
     try:
         df = get_overload_history_from_db(engine, feeder_id)
         if df.empty:
-            raise HTTPException(404, "No data")
+            return []
         records = df.to_dict(orient="records")
         for record in records:
             if 'timestamp' in record and record['timestamp']:
@@ -154,7 +154,7 @@ def get_feeder_history(feeder_id: int):
         return records
     except Exception as e:
         log.error(f"History error: {e}")
-        raise HTTPException(500, str(e))
+        return []
 
 @app.delete("/cache")
 def clear_cache():
