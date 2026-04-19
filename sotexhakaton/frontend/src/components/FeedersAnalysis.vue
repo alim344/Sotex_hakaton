@@ -14,7 +14,6 @@
             <th>ID</th>
             <th>Name</th>
             <th>Status</th>
-            <th>Risk</th>
             <th>Action</th>
           </tr>
         </thead>
