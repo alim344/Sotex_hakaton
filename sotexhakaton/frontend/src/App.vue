@@ -15,6 +15,10 @@
            <span class="nav-icon">📊</span>
                 Feeders
             </router-link>
+            <router-link to="/feeders" class="nav-link" active-class="active">
+            <span class="nav-icon">📋</span>
+            Feeders Analysis
+            </router-link>
         </div>
 
       </div>
