@@ -1,6 +1,12 @@
 <template>
   <div class="map-container">
-    <!-- Search bar -->
+    <div id="map"></div>
+    
+    <div v-if="loading" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Učitavam stanice...</p>
+    </div>
+    
     <div class="search-container">
       <input
         type="text"
@@ -18,22 +24,46 @@
           class="search-result-item"
         >
           <span class="result-name">🏭 {{ result.name }}</span>
-          <span class="result-id">ID: {{ result.id }}</span>
+          <span class="result-id">{{ result.f11Count || 0 }} F11</span>
+        </div>
+        <div v-if="searchResults.length === 0 && searchQuery" class="no-results">
+          Nema rezultata za "{{ searchQuery }}"
         </div>
       </div>
     </div>
-
-    <div id="map"></div>
     
+    <!-- Stats panel sa filter legendom -->
     <div class="stats-panel">
       <h3>⚡ Sotex Solutions</h3>
       <div class="stat">
-        <span>📍 Stanice:</span>
-        <strong>{{ stationCount }}</strong>
+        <span>📍 Ukupno stanica:</span>
+        <strong>{{ totalCount }}</strong>
       </div>
       <div class="legend">
-        <h4>📌 Legenda</h4>
-        <div><span class="dot red"></span> Trafo stanice</div>
+        <div 
+          class="legend-item" 
+          :class="{ active: filterType === 'all' }"
+          @click="setFilter('all')"
+        >
+          <span class="dot all"></span>
+          <span>Sve stanice</span>
+        </div>
+        <div 
+          class="legend-item" 
+          :class="{ active: filterType === 'substation' }"
+          @click="setFilter('substation')"
+        >
+          <span class="dot red"></span>
+          <span>Srednjenaponske ({{ substationCount }})</span>
+        </div>
+        <div 
+          class="legend-item" 
+          :class="{ active: filterType === 'transmission' }"
+          @click="setFilter('transmission')"
+        >
+          <span class="dot blue"></span>
+          <span>Visokonaponske ({{ transmissionCount }})</span>
+        </div>
       </div>
     </div>
   </div>
@@ -45,6 +75,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import axios from 'axios'
 
+
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -52,91 +83,184 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 })
 
-const stationCount = ref(0)
+function getColoredIcon(color) {
+  return L.divIcon({
+    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    className: 'custom-marker',
+    iconSize: [14, 14],
+    popupAnchor: [0, -7]
+  })
+}
+
+const loading = ref(true)
+const filterType = ref('all')
+const substationCount = ref(0)
+const transmissionCount = ref(0)
+const totalCount = ref(0)
 const searchQuery = ref('')
 const searchResults = ref([])
+
 let leafletMap = null
-let allStations = []
-let markers = []
+let allSubstations = []
+let allTransmissions = []
+let allMarkers = []
+
+function formatFeederList(feeders) {
+  if (!feeders || feeders.length === 0) {
+    return '<i>Nema F11 izvoda</i>'
+  }
+  
+  let html = '<ul style="margin: 8px 0 0 18px; font-size: 11px; max-height: 150px; overflow-y: auto;">'
+  feeders.forEach(f => {
+    const feederId = f.id || f.Id || '?'
+    const feederName = f.name || f.Name || f.feederName || 'Nepoznato'
+    html += `<li style="margin: 3px 0;"><strong>🔌 ${feederName}</strong> (ID: ${feederId})</li>`
+  })
+  html += '</ul>'
+  
+  return html
+}
+
+async function loadFeedersForStation(stationId) {
+  try {
+    const response = await axios.get(`http://localhost:8080/feeders/by-substation/${stationId}`)
+    return response.data
+  } catch (error) {
+    console.warn(`Ne mogu da učitam F11 za stanicu ${stationId}`)
+    return []
+  }
+}
+
+async function createPopupContent(station) {
+  const feeders = await loadFeedersForStation(station.id)
+  const feederListHtml = formatFeederList(feeders)
+  
+  return `
+    <div style="min-width: 260px; max-width: 320px; padding: 5px;">
+      <b style="color: #e94560; font-size: 14px;">🏭 ${station.name}</b>
+      <hr style="margin: 8px 0;">
+      <div style="font-size: 12px; margin: 5px 0;">
+        <strong>🔑 ID:</strong> ${station.id}
+      </div>
+        <div style="font-size: 12px; margin: 5px 0;">
+              <strong>⚡ Tip:</strong> Srednjenaponska
+            </div>
+      <div style="font-size: 12px; margin: 5px 0;">
+        <strong>🔌 F11 izvoda:</strong> ${feeders.length}
+      </div>
+      ${feeders.length > 0 ? `<hr style="margin: 8px 0;"><div style="font-size: 12px;"><strong>📋 Lista F11 izvoda:</strong>${feederListHtml}</div>` : ''}
+    </div>
+  `
+}
+
+function updateMapFilter() {
+  allMarkers.forEach(item => {
+    if (filterType.value === 'all') {
+      item.marker.addTo(leafletMap)
+    } else if (filterType.value === 'substation' && item.type === 'substation') {
+      item.marker.addTo(leafletMap)
+    } else if (filterType.value === 'transmission' && item.type === 'transmission') {
+      item.marker.addTo(leafletMap)
+    } else {
+      leafletMap.removeLayer(item.marker)
+    }
+  })
+}
+
+function setFilter(type) {
+  filterType.value = type
+  updateMapFilter()
+}
 
 async function loadSubstations() {
   try {
-    console.log('📍 Učitavam stanice...')
     const response = await axios.get('http://localhost:8080/substations/all')
-    allStations = response.data
+    allSubstations = response.data
+    substationCount.value = allSubstations.length
     
-    stationCount.value = allStations.length
-    console.log(`✅ Učitano ${allStations.length} stanica`)
-    
-    if (allStations.length === 0) {
-      console.warn('Nema stanica za prikaz')
-      return
+    for (const station of allSubstations) {
+      const marker = L.marker([station.latitude, station.longitude], { icon: getColoredIcon('#e94560') })
+        .bindTooltip(station.name, { sticky: true, direction: 'top', offset: [0, -15] })
+      
+      marker.on('click', async () => {
+        const popupContent = await createPopupContent(station)
+        marker.bindPopup(popupContent).openPopup()
+      })
+      
+      allMarkers.push({ marker, station, type: 'substation' })
     }
     
-    allStations.forEach(station => {
-      const popupContent = `
-        <div style="min-width: 180px; padding: 5px;">
-          <b style="color: #e94560; font-size: 14px;">🏭 ${station.name}</b><br>
-          <hr style="margin: 5px 0;">
-          <table style="width: 100%; font-size: 12px;">
-            <tr>
-              <td style="padding: 2px 0;"><strong>ID:</strong></td>
-              <td style="padding: 2px 0;">${station.id}</td>
-            </tr>
-            <tr>
-              <td style="padding: 2px 0;"><strong>🔌 F11 izvoda:</strong></td>
-              <td style="padding: 2px 0;">${station.f11Count || 0}</td>
-            </tr>
-            <tr>
-              <td style="padding: 2px 0;"><strong>📍 Koordinate:</strong></td>
-              <td style="padding: 2px 0;">${station.latitude.toFixed(4)}, ${station.longitude.toFixed(4)}</td>
-            </tr>
-          </table>
-        </div>
-      `
-      
-      const marker = L.marker([station.latitude, station.longitude])
-        .bindPopup(popupContent)
-        .bindTooltip(station.name, { 
-          sticky: true, 
-          direction: 'top',
-          offset: [0, -15]
-        })
-      
-      marker.addTo(leafletMap)
-      markers.push({ marker, station })
-    })
-    
-    leafletMap.setView([9.08, 7.49], 9)
+    console.log(`✅ Učitano ${allSubstations.length} srednjenaponskih stanica`)
     
   } catch (error) {
-    console.error('❌ Greška:', error)
+    console.error('❌ Greška pri učitavanju substations:', error)
+  }
+}
+
+
+async function loadTransmissionStations() {
+  try {
+    const response = await axios.get('http://localhost:8080/transmission-stations/all')
+    allTransmissions = response.data
+    transmissionCount.value = allTransmissions.length
+    
+    allTransmissions.forEach(station => {
+      const marker = L.marker([station.latitude, station.longitude], { icon: getColoredIcon('#3b82f6') })
+        .bindTooltip(station.name, { sticky: true, direction: 'top', offset: [0, -15] })
+        .bindPopup(`
+          <div style="min-width: 200px; padding: 5px;">
+            <b style="color: #3b82f6; font-size: 14px;">🏭 ${station.name}</b>
+            <hr style="margin: 8px 0;">
+            <div style="font-size: 12px; margin: 5px 0;">
+              <strong>🔑 ID:</strong> ${station.id}
+            </div>
+            <div style="font-size: 12px; margin: 5px 0;">
+              <strong>⚡ Tip:</strong> Visokonaponska (TS)
+            </div>
+          </div>
+        `)
+      
+      allMarkers.push({ marker, station, type: 'transmission' })
+    })
+    
+    console.log(`✅ Učitano ${allTransmissions.length} visokonaponskih stanica`)
+    
+  } catch (error) {
+    console.error('❌ Greška pri učitavanju transmission stations:', error)
   }
 }
 
 function searchStation() {
   const query = searchQuery.value.toLowerCase().trim()
-  
   if (!query) {
     searchResults.value = []
     return
   }
   
+  const allStations = [
+    ...allSubstations.map(s => ({ ...s, type: 'substation' })),
+    ...allTransmissions.map(s => ({ ...s, type: 'transmission' }))
+  ]
+  
   searchResults.value = allStations.filter(station => 
     station.name.toLowerCase().includes(query)
-  ).slice(0, 10) 
+  ).slice(0, 10)
 }
 
 function centerToStation(station) {
-
-  leafletMap.setView([station.latitude, station.longitude], 15)
+  leafletMap.setView([station.latitude, station.longitude], 14)
   
-  const found = markers.find(m => m.station.id === station.id)
+  const found = allMarkers.find(m => m.station.id === station.id && m.station.name === station.name)
   if (found) {
-    found.marker.openPopup()
+    if (station.type === 'substation') {
+      createPopupContent(station).then(popupContent => {
+        found.marker.bindPopup(popupContent).openPopup()
+      })
+    } else {
+      found.marker.openPopup()
+    }
   }
   
-
   searchQuery.value = ''
   searchResults.value = []
 }
@@ -146,11 +270,9 @@ function clearSearch() {
   searchResults.value = []
 }
 
-onMounted(() => {
-
-  leafletMap = L.map('map').setView([9.08, 7.49], 9)
+onMounted(async () => {
+  leafletMap = L.map('map').setView([9.08, 7.49], 11)
   
-
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
     subdomains: 'abcd',
@@ -159,49 +281,88 @@ onMounted(() => {
   }).addTo(leafletMap)
   
   L.control.zoom({ position: 'topright' }).addTo(leafletMap)
-
-  loadSubstations()
+  
+  await loadSubstations()
+  await loadTransmissionStations()
+  
+  totalCount.value = substationCount.value + transmissionCount.value
+  
+  allMarkers.forEach(item => {
+    item.marker.addTo(leafletMap)
+  })
+  
+  loading.value = false
 })
 </script>
 
 <style scoped>
 .map-container {
-  position: relative;
-  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
   height: 100vh;
+  z-index: 1;
 }
 
 #map {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  background-color: #f0f0f0;
+  background-color: #e8e8e8;
 }
 
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 18px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #e94560;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 .search-container {
   position: absolute;
-  top: 20px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: 300px;
+  width: 320px;
 }
 
 .search-input {
   width: 100%;
-  padding: 10px 15px;
+  padding: 10px 35px 10px 15px;
   font-size: 14px;
   border: 2px solid #e94560;
-  border-radius: 25px;
+  border-radius: 30px;
   outline: none;
   background: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-  transition: all 0.3s;
-}
-
-.search-input:focus {
-  border-color: #ff6b81;
-  box-shadow: 0 2px 15px rgba(233,69,96,0.3);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .clear-btn {
@@ -214,11 +375,6 @@ onMounted(() => {
   font-size: 16px;
   cursor: pointer;
   color: #999;
-  padding: 0 5px;
-}
-
-.clear-btn:hover {
-  color: #e94560;
 }
 
 .search-results {
@@ -227,9 +383,9 @@ onMounted(() => {
   left: 0;
   right: 0;
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  max-height: 300px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: 250px;
   overflow-y: auto;
   z-index: 1001;
 }
@@ -240,8 +396,6 @@ onMounted(() => {
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  transition: background 0.2s;
 }
 
 .search-result-item:hover {
@@ -258,50 +412,63 @@ onMounted(() => {
   color: #999;
 }
 
+.no-results {
+  padding: 10px 15px;
+  text-align: center;
+  color: #999;
+}
+
 .stats-panel {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: 70px;
+  left: 30px;
   background: rgba(26, 26, 46, 0.9);
+  backdrop-filter: blur(8px);
   color: white;
   padding: 12px 18px;
-  border-radius: 8px;
-  min-width: 150px;
-  backdrop-filter: blur(5px);
+  border-radius: 10px;
+  min-width: 200px;
   z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  font-size: 14px;
+  border-left: 3px solid #e94560;
 }
 
 .stats-panel h3 {
   color: #e94560;
   margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.stats-panel h4 {
-  color: #aaa;
-  margin-bottom: 6px;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .stat {
   display: flex;
   justify-content: space-between;
   margin: 5px 0;
+  font-size: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
 }
 
 .legend {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid #333;
+  margin-top: 5px;
 }
 
-.legend div {
+.legend-item {
   display: flex;
   align-items: center;
-  margin: 4px 0;
+  margin: 6px 0;
   font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.legend-item:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.legend-item.active {
+  background: rgba(233, 69, 96, 0.2);
+  border-left: 2px solid #e94560;
 }
 
 .dot {
@@ -313,16 +480,13 @@ onMounted(() => {
 
 .dot.red {
   background-color: #e94560;
-  border: 1px solid white;
 }
 
-
-:deep(.leaflet-popup-content-wrapper) {
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+.dot.blue {
+  background-color: #3b82f6;
 }
 
-:deep(.leaflet-popup-content) {
-  margin: 8px 12px;
+.dot.all {
+  background: linear-gradient(135deg, #e94560 50%, #3b82f6 50%);
 }
 </style>

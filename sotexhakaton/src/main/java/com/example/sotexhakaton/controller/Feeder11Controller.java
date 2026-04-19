@@ -1,13 +1,11 @@
 package com.example.sotexhakaton.controller;
 
+import com.example.sotexhakaton.dto.Feeder11SimpleDTO;
 import com.example.sotexhakaton.model.Feeder11;
 import com.example.sotexhakaton.service.Feeder11Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -31,4 +29,18 @@ public class Feeder11Controller {
 
         return ResponseEntity.ok(grouped);
     } */
+
+    @GetMapping("/by-substation/{ssId}")
+    public ResponseEntity<List<Feeder11SimpleDTO>> getFeedersBySubstation(@PathVariable Integer ssId) {
+        List<Feeder11> feeders = feeder11Service.getFeedersBySubstation(ssId);
+
+        List<Feeder11SimpleDTO> result = feeders.stream()
+                .map(f -> new Feeder11SimpleDTO(f.getId(), f.getName()))
+                .collect(Collectors.toList());
+
+        System.out.println("Feeders za SS " + ssId + ": " + result.size()); // LOG
+        result.forEach(f -> System.out.println("  - " + f.getId() + ": " + f.getName()));
+
+        return ResponseEntity.ok(result);
+    }
 }

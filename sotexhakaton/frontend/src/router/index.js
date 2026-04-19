@@ -1,23 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../views/HomePage.vue'
-import DashboardPage from '../views/DashboardPage.vue'
 import AnalysisPage from '../views/AnalysisPage.vue'
+import SubstationMap from '../components/SubstationMap.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: HomePage
-  },
-  {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: DashboardPage
-  },
-  {
-    path: '/analysis',
-    name: 'Analysis',
-    component: AnalysisPage
+    name: 'Map',
+    component: SubstationMap
   }
 ]
 

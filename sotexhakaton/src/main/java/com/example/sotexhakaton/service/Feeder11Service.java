@@ -20,4 +20,5 @@ public class Feeder11Service {
     public List<Feeder11> findAll() {
         return feeder11Repository.findAll();
     }
+
 }
