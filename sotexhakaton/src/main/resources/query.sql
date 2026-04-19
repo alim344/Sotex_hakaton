@@ -6,7 +6,7 @@ WITH DeltaCalculation AS (
     FROM dbo.MeterReadTfes m
              JOIN dbo.Meters me ON m.Mid = me.Id
              JOIN dbo.Feeders11 f ON f.MeterId = me.Id
-    WHERE f.Id = 17
+    WHERE f.Id = 1
 ),
      NormalizedData AS (
          SELECT
@@ -24,6 +24,7 @@ SELECT
     energy_kwh,
     ROUND((energy_kwh / NULLIF(limit_kwh, 0)) * 100, 2) AS load_percent,
     CASE
+        WHEN energy_kwh = 0 THEN 'NO DATA'
     WHEN (energy_kwh / NULLIF(limit_kwh, 0)) > 1.0 THEN 'OVERLOAD'
     WHEN (energy_kwh / NULLIF(limit_kwh, 0)) BETWEEN 0.8 AND 1.0 THEN 'STRESSED'
     ELSE 'NORMAL'
@@ -46,3 +47,6 @@ WITH MaxLoad AS (
 SELECT Id, ROUND(PeakPower / 4.5, 0) as estimated_consumers
 FROM MaxLoad
 ORDER BY estimated_consumers DESC
+
+
+
