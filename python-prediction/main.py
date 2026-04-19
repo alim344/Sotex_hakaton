@@ -6,17 +6,18 @@ from analysis import analyze_data
 from models import PredictRequest, PredictResponse
 from contextlib import asynccontextmanager
 from update_db import run_database_cleanup
+from overload import get_overload_history_from_db
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     print("\nServer se pokreće — čišćenje baze u toku...")
-#     try:
-#         run_database_cleanup()
-#         print("Čišćenje završeno. Server je spreman.\n")
-#     except Exception as e:
-#         print(f"UPOZORENJE: Čišćenje baze nije uspelo: {e}")
-#         print("Server nastavlja sa radom bez čišćenja.\n")
-#     yield 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("\nServer se pokreće — čišćenje baze u toku...")
+    try:
+        run_database_cleanup()
+        print("Čišćenje završeno. Server je spreman.\n")
+    except Exception as e:
+        print(f"UPOZORENJE: Čišćenje baze nije uspelo: {e}")
+        print("Server nastavlja sa radom bez čišćenja.\n")
+    yield 
 
 app = FastAPI(title="Sotex Outage Prediction")
 #app = FastAPI(title="Sotex Outage Prediction", lifespan=lifespan)
@@ -75,3 +76,32 @@ def predict(req: PredictRequest):
 def clear_cache():
     _cache.clear()
     return {"message": "Cache obrisan"}
+
+
+
+
+
+@app.get("/history/{feeder_id}")
+def get_feeder_history(feeder_id: int):
+    try:
+        df = get_overload_history_from_db(engine, feeder_id)
+
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data")
+
+        records = df.to_dict(orient="records")
+        
+        for record in records:
+            if 'timestamp' in record and record['timestamp']:
+               
+                if isinstance(record['timestamp'], str):
+                    
+                    record['timestamp'] = record['timestamp'].replace(" ", "T")
+                else:
+                    record['timestamp'] = record['timestamp'].isoformat()
+
+        return records 
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
