@@ -8,16 +8,20 @@
         </div>
         <div class="nav-links">
           <router-link to="/" class="nav-link" active-class="active">
-            <span class="nav-icon">🗺️</span>
+       
             Substations Map
           </router-link>
           <router-link to="/monitor" class="nav-link" active-class="active">
-           <span class="nav-icon">📊</span>
+       
                 Feeders
             </router-link>
             <router-link to="/feeders" class="nav-link" active-class="active">
-            <span class="nav-icon">📋</span>
+   
             Feeders Analysis
+            </router-link>
+            <router-link to="/risk" class="nav-link" active-class="active">
+     
+              Risk Analysis
             </router-link>
         </div>
 
