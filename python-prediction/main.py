@@ -3,13 +3,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from contextlib import asynccontextmanager
-
+from prediction import forecast_feeder
 from database import engine, get_feeder_readings, get_all_feeders
 from analysis import analyze_feeder, detect_gaps_only, _risk_score
 from models import (
     AnalyzeRequest, AnalyzeResponse,
     NetworkScanRequest, NetworkScanResponse,
-    FeederSummary, AnomalyPoint, GapEvent
+    FeederSummary, AnomalyPoint, GapEvent, ForecastResponse, ForecastRequest, ForecastPoint, HighLoadWindow
 )
 from update_db import run_database_cleanup
 from overload import get_overload_history_from_db
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 _analyze_cache = {}
+_forecast_cache = {}
 
 
 def _build_response(feeder11_id: int, analysis: dict, from_cache: bool) -> AnalyzeResponse:
@@ -118,6 +119,44 @@ def network_scan(req: NetworkScanRequest):
         warning_count=sum(1 for r in results if r.status == "WARNING"),
         ok_count=sum(1 for r in results if r.status == "OK"),
         feeders=results[:req.top_n],
+    )
+
+@app.post("/forecast", response_model=ForecastResponse)
+def forecast(req: ForecastRequest):
+    """
+    Predikcija potrošnje za Feeder11.
+ 
+    - Koristi SARIMA(1,1,1)(1,0,1)[48] ako ima dovoljno podataka
+    - Fallback na naive (prosek istog sata/dana u nedelji)
+    - Predviđa consumption_per_hour (kWh/h) — bez normalizacije na NameplateRating
+    - Prag za 'visoku potrošnju' = 90. percentil istorijskih vrednosti
+    """
+    key = (req.feeder11_id, req.hours, req.horizon_hours)
+    if key in _forecast_cache:
+        cached = _forecast_cache[key]
+        return ForecastResponse(
+            feeder11_id=req.feeder11_id,
+            **cached,
+        )
+ 
+    df = get_feeder_readings(req.feeder11_id, req.hours)
+    if df.empty:
+        raise HTTPException(404, f"Nema podataka za Feeder11 ID={req.feeder11_id}.")
+ 
+    result = forecast_feeder(df, req.horizon_hours)
+ 
+    if result["method_used"] == "none":
+        raise HTTPException(422, "Nedovoljno podataka za predikciju (minimum 48 ocitavanja).")
+ 
+    _forecast_cache[key] = result
+ 
+    return ForecastResponse(
+        feeder11_id=req.feeder11_id,
+        method_used=result["method_used"],
+        horizon_hours=result["horizon_hours"],
+        predicted_peak=result["predicted_peak"],
+        high_load_windows=[HighLoadWindow(**w) for w in result["high_load_windows"]],
+        forecast_points=[ForecastPoint(**p) for p in result["forecast_points"]],
     )
 
 @app.get("/feeders")

@@ -12,7 +12,11 @@ class NetworkScanRequest(BaseModel):
     use_forecast: bool = Field(False, description="Zadržano zbog kompatibilnosti, ali se ne koristi")
     top_n: int         = Field(20, ge=1, le=200, description="Koliko najkritičnijih da vrati")
 
-
+class ForecastRequest(BaseModel):
+    feeder11_id: int  = Field(..., description="ID Feeders11 zapisa")
+    hours: int        = Field(168, ge=1, le=8760, description="Koliko istorijskih sati koristimo za trening")
+    horizon_hours: int = Field(24, ge=1, le=168,  description="Koliko sati unapred predvidjamo")
+    
 class AnomalyPoint(BaseModel):
     meter_id: int
     timestamp: str
@@ -26,6 +30,18 @@ class GapEvent(BaseModel):
     start: str
     end: str
     duration_h: float
+
+class ForecastPoint(BaseModel):
+    timestamp: str
+    predicted_value: float
+    lower_bound: float
+    upper_bound: float
+    is_high_load: bool
+ 
+ 
+class HighLoadWindow(BaseModel):
+    start: str
+    end: str
 
 
 class AnalyzeResponse(BaseModel):
@@ -66,3 +82,12 @@ class NetworkScanResponse(BaseModel):
     warning_count: int
     ok_count: int
     feeders: list[FeederSummary]
+
+class ForecastResponse(BaseModel):
+    feeder11_id: int
+    method_used: str
+    horizon_hours: int
+    predicted_peak: float
+    high_load_windows: list[HighLoadWindow] = []
+    forecast_points: list[ForecastPoint]   = []
+
