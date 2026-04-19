@@ -6,7 +6,7 @@ WITH DeltaCalculation AS (
     FROM dbo.MeterReadTfes m
              JOIN dbo.Meters me ON m.Mid = me.Id
              JOIN dbo.Feeders11 f ON f.MeterId = me.Id
-    WHERE f.Id = :feeder_id
+    WHERE f.Id = 17
 ),
      NormalizedData AS (
          SELECT
@@ -30,3 +30,19 @@ SELECT
 END AS status
         FROM NormalizedData
         ORDER BY timestamp DESC;
+
+
+WITH MaxLoad AS (
+    SELECT
+        f.Id,
+        MAX((m.Val - LAG_VAL) * mt.MultiplierFactor / 10000.0) as PeakPower
+    FROM (
+             SELECT Mid, Val, LAG(Val) OVER (PARTITION BY Mid ORDER BY Ts) as LAG_VAL FROM dbo.MeterReadTfes
+         ) m
+             JOIN dbo.Meters mt ON m.Mid = mt.Id
+             JOIN dbo.Feeders11 f ON f.MeterId = mt.Id
+    GROUP BY f.Id
+)
+SELECT Id, ROUND(PeakPower / 4.5, 0) as estimated_consumers
+FROM MaxLoad
+ORDER BY estimated_consumers DESC

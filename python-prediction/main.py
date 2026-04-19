@@ -87,7 +87,7 @@ def get_feeder_history(feeder_id: int):
         df = get_overload_history_from_db(engine, feeder_id)
 
         if df.empty:
-            raise HTTPException(status_code=404, detail="No data")
+            return []
 
         records = df.to_dict(orient="records")
         
@@ -104,4 +104,4 @@ def get_feeder_history(feeder_id: int):
 
     except Exception as e:
         print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return []
