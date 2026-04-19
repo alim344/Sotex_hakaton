@@ -15,7 +15,7 @@ public class OverloadService {
 
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String PYTHON_URL = "http://localhost:8000/history/";
+    private final String PYTHON_URL = "http://localhost:8001/history/";
 
     @Cacheable(value = "feederHistory", key = "#feederId", unless = "#result.isEmpty()")
     public List<OverloadHistory> getHistoryFromPython(Integer feederId) {
