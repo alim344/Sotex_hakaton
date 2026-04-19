@@ -31,8 +31,6 @@ class GapEvent(BaseModel):
 class AnalyzeResponse(BaseModel):
     feeder11_id: int
     from_cache: bool
-
-    # Anomaly detection
     status: Literal["OK", "WARNING", "CRITICAL", "NO_DATA"]
     risk_score: float
     total_readings: int

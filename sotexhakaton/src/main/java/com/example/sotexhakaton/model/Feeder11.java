@@ -17,15 +17,15 @@ public class Feeder11 {
 
     private String Name;
 
-    private int SsId;
+    private Integer SsId;
 
-    private int MeterId;
+    private Integer MeterId;
 
-    private int Feeder33Id;
+    private Integer Feeder33Id;
 
-    private int NameplateRating;
+    private Integer NameplateRating;
 
-    private int TsId;
+    private Integer TsId;
 
 
 

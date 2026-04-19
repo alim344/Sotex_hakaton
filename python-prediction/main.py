@@ -1,30 +1,38 @@
-from __future__ import annotations
-
-import logging
-from functools import lru_cache
-
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from contextlib import asynccontextmanager
 
 from database import engine, get_feeder_readings, get_all_feeders
-from analysis import analyze_feeder, detect_gaps_only
+from analysis import analyze_feeder, detect_gaps_only, _risk_score
 from models import (
     AnalyzeRequest, AnalyzeResponse,
     NetworkScanRequest, NetworkScanResponse,
-    FeederSummary, AnomalyPoint, GapEvent,
+    FeederSummary, AnomalyPoint, GapEvent
 )
+from update_db import run_database_cleanup
+from overload import get_overload_history_from_db
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+import logging
 log = logging.getLogger("sotex")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("\nServer se pokreće — čišćenje baze u toku...")
+    try:
+        run_database_cleanup()
+        print("Čišćenje završeno. Server je spreman.\n")
+    except Exception as e:
+        print(f"UPOZORENJE: Čišćenje baze nije uspelo: {e}")
+        print("Server nastavlja sa radom bez čišćenja.\n")
+    yield
 
 app = FastAPI(
     title="Sotex Outage & Anomaly Detection API",
-    version="3.0.0",
-    description="Detekcija prekida merenja (gap-ova) i anomalija potrošnje (bez upotrebe nameplate ratinga).",
+    version="3.1.0",
+    description="Detekcija prekida merenja (gap-ova), anomalija potrošnje i istorije preopterećenja.",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -33,17 +41,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-_cache: dict[tuple, dict] = {}
 
-def _cache_key(req: AnalyzeRequest) -> tuple:
-    return (req.feeder11_id, req.hours)
+_analyze_cache = {}
 
 
-def _build_response(
-    feeder11_id: int,
-    analysis: dict,
-    from_cache: bool,
-) -> AnalyzeResponse:
+def _build_response(feeder11_id: int, analysis: dict, from_cache: bool) -> AnalyzeResponse:
     return AnalyzeResponse(
         feeder11_id=feeder11_id,
         from_cache=from_cache,
@@ -65,46 +67,31 @@ def _build_response(
         horizon_hours=0,
     )
 
-@app.post("/analyze", response_model=AnalyzeResponse, summary="Detaljna analiza feedera (anomalije + gapovi)")
+@app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     key = (req.feeder11_id, req.hours)
-    if key in _cache:
-        log.info("Cache hit: feeder=%d", req.feeder11_id)
-        cached = _cache[key]
-        return _build_response(req.feeder11_id, cached["analysis"], True)
+    if key in _analyze_cache:
+        log.info("Cache hit (analyze): feeder=%d", req.feeder11_id)
+        return _build_response(req.feeder11_id, _analyze_cache[key], True)
 
-    log.info("Analiza feedera %d (%d h)...", req.feeder11_id, req.hours)
     df = get_feeder_readings(req.feeder11_id, req.hours)
-
     if df.empty:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Nema podataka za Feeder11 ID={req.feeder11_id} u poslednjih {req.hours} sati.",
-        )
+        raise HTTPException(404, f"Nema podataka za Feeder11 ID={req.feeder11_id} u poslednjih {req.hours} sati.")
 
     analysis = analyze_feeder(df)
-    _cache[key] = {"analysis": analysis}
-    log.info(
-        "Feeder %d → status=%s risk=%.3f anomalies=%d outages=%d",
-        req.feeder11_id, analysis["status"], analysis["risk_score"],
-        analysis["anomaly_count"], analysis["total_outages"],
-    )
-
+    _analyze_cache[key] = analysis
     return _build_response(req.feeder11_id, analysis, False)
 
-
-@app.post("/network/scan", response_model=NetworkScanResponse, summary="Skeniranje cele mreže")
+@app.post("/network/scan", response_model=NetworkScanResponse)
 def network_scan(req: NetworkScanRequest):
     feeders_df = get_all_feeders()
     if feeders_df.empty:
-        raise HTTPException(status_code=404, detail="Nema Feeders11 zapisa u bazi.")
+        raise HTTPException(404, "Nema Feeders11 zapisa u bazi.")
 
-    results: list[FeederSummary] = []
-
+    results = []
     for _, row in feeders_df.iterrows():
         fid = int(row["Id"])
         name = str(row["Name"])
-
         try:
             df = get_feeder_readings(fid, req.hours)
             analysis = analyze_feeder(df)
@@ -120,56 +107,29 @@ def network_scan(req: NetworkScanRequest):
         except Exception as e:
             log.warning("Greška za feeder %d (%s): %s", fid, name, e)
             results.append(FeederSummary(
-                feeder11_id=fid,
-                name=name,
-                status="NO_DATA",
-                risk_score=0.0,
-                anomaly_rate=0.0,
-                max_gap_hours=0.0,
-                total_readings=0,
+                feeder11_id=fid, name=name, status="NO_DATA",
+                risk_score=0.0, anomaly_rate=0.0, max_gap_hours=0.0, total_readings=0
             ))
 
     results.sort(key=lambda r: r.risk_score, reverse=True)
-
     return NetworkScanResponse(
         scanned=len(results),
         critical_count=sum(1 for r in results if r.status == "CRITICAL"),
         warning_count=sum(1 for r in results if r.status == "WARNING"),
         ok_count=sum(1 for r in results if r.status == "OK"),
-        feeders=results[: req.top_n],
+        feeders=results[:req.top_n],
     )
 
-
-@app.get("/feeders", summary="Lista svih Feeders11")
+@app.get("/feeders")
 def list_feeders():
     df = get_all_feeders()
-    if df.empty:
-        return []
-    return df.to_dict(orient="records")
+    return [] if df.empty else df.to_dict(orient="records")
 
-
-@app.delete("/cache", summary="Briši keš")
-def clear_cache():
-    count = len(_cache)
-    _cache.clear()
-    return {"message": f"Obrisano {count} keširanih rezultata."}
-
-
-@app.get("/health", summary="Health check")
-def health():
-    try:
-        with engine.connect() as conn:
-            conn.execute(__import__("sqlalchemy").text("SELECT 1"))
-        return {"status": "ok", "db": "connected"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"DB nedostupna: {e}")
-
-
-@app.get("/gaps", summary="Samo prekidi merenja (gap-ovi)")
+@app.get("/gaps")
 def get_gaps(feeder11_id: int, hours: int = 168, gap_threshold_minutes: int = 95):
     df = get_feeder_readings(feeder11_id, hours)
     if df.empty:
-        raise HTTPException(status_code=404, detail="Nema podataka za dati feeder.")
+        raise HTTPException(404, "Nema podataka za dati feeder.")
     gaps = detect_gaps_only(df, gap_threshold_minutes)
     return {
         "feeder11_id": feeder11_id,
@@ -177,3 +137,36 @@ def get_gaps(feeder11_id: int, hours: int = 168, gap_threshold_minutes: int = 95
         "max_gap_hours": max((g["duration_h"] for g in gaps), default=0.0),
         "gaps": gaps
     }
+
+@app.get("/history/{feeder_id}")
+def get_feeder_history(feeder_id: int):
+    try:
+        df = get_overload_history_from_db(engine, feeder_id)
+        if df.empty:
+            raise HTTPException(404, "No data")
+        records = df.to_dict(orient="records")
+        for record in records:
+            if 'timestamp' in record and record['timestamp']:
+                if isinstance(record['timestamp'], str):
+                    record['timestamp'] = record['timestamp'].replace(" ", "T")
+                else:
+                    record['timestamp'] = record['timestamp'].isoformat()
+        return records
+    except Exception as e:
+        log.error(f"History error: {e}")
+        raise HTTPException(500, str(e))
+
+@app.delete("/cache")
+def clear_cache():
+    count_a = len(_analyze_cache)
+    _analyze_cache.clear()
+    return {"message": f"Obrisano {count_a} keširanih rezultata ({count_a} analyze."}
+
+@app.get("/health")
+def health():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception as e:
+        raise HTTPException(503, f"DB nedostupna: {e}")
